@@ -1,0 +1,62 @@
+{
+  "name": "patient-tracking-app",
+  "version": "1.0.0",
+  "description": "Application de suivi des patients pour les professionnels de santé",
+  "main": "./src/main.js",
+  "scripts": {
+    "rebuild": "electron-rebuild",
+    "postinstall": "electron-builder install-app-deps",
+    "start": "electron .",
+    "build:css": "tailwindcss -i ./src/assets/styles/tailwind.css -o ./src/assets/styles/output.css",
+    "watch:css": "tailwindcss -i ./src/assets/styles/tailwind.css -o ./src/assets/styles/output.css --watch",
+    "clear-cache": "rimraf ~/.electron && rimraf ~/.electron-gyp",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --x64",
+    "dev": "yarn clear-cache && concurrently \"npm run watch:css\" \"cross-env NODE_ENV=development electron .\""
+  },
+  "keywords": [],
+  "author": "Abdoulaye BARRY",
+  "license": "ISC",
+  "dependencies": {
+    "apexcharts": "^3.51.0",
+    "bcrypt": "^5.1.1",
+    "concurrently": "^8.2.2",
+    "docx": "^8.5.0",
+    "pdfkit": "^0.15.0",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.2.9",
+    "electron-reload": "^2.0.0-alpha.1",
+    "postcss": "^8.4.40",
+    "rimraf": "^6.0.1",
+    "tailwindcss": "^3.4.7"
+  },
+  "build": {
+    "appId": "com.africadevtalents.patient-tracking-app",
+    "productName": "Suivi des Patients",
+    "copyright": "Copyright © 2023 ",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "path/to/your/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

@@ -1,10 +1,10 @@
 // src/components/Consultations/AddConsultation.js
 
 export default function AddConsultation(patientId, onConsultationAdded) {
-    let formContainer = null;
+  let formContainer = null;
 
-    function render() {
-        const template = `
+  function render() {
+    const template = `
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" id="addConsultationModal">
           <div class="relative top-20 mx-auto p-5 border w-3/4 shadow-lg rounded-md bg-white">
             <div class="mt-3 text-center">
@@ -66,51 +66,70 @@ export default function AddConsultation(patientId, onConsultationAdded) {
         </div>
       `;
 
-        formContainer = document.createElement('div');
-        formContainer.innerHTML = template;
-        document.body.appendChild(formContainer);
+    formContainer = document.createElement('div');
+    formContainer.innerHTML = template;
+    document.body.appendChild(formContainer);
 
-        addEventListeners();
-    }
+    addEventListeners();
+  }
 
-    function addEventListeners() {
-        formContainer.querySelector('#addConsultationForm').addEventListener('submit', handleAddConsultation);
-        formContainer.querySelector('#cancelAddConsultation').addEventListener('click', closeModal);
-    }
+  function addEventListeners() {
+    formContainer.querySelector('#addConsultationForm').addEventListener('submit', handleAddConsultation);
+    formContainer.querySelector('#cancelAddConsultation').addEventListener('click', closeModal);
+  }
 
-    function handleAddConsultation(e) {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const consultationData = Object.fromEntries(formData.entries());
-
-        consultationData.patientId = patientId;
-        consultationData.pulse = parseInt(consultationData.pulse) || null;
-        consultationData.weight = parseFloat(consultationData.weight) || null;
-        consultationData.temperature = parseFloat(consultationData.temperature) || null;
-
-        window.electronAPI.send('addConsultation', consultationData);
-    }
-
-    function closeModal() {
-        if (formContainer) {
-            formContainer.remove();
-        }
-    }
-
-    window.electronAPI.receive('addConsultationResponse', (response) => {
-        if (response.success) {
-            alert('Consultation ajoutée avec succès');
-            closeModal();
-            if (typeof onConsultationAdded === 'function') {
-                onConsultationAdded();
-            }
-        } else {
-            alert("Erreur lors de l'ajout de la consultation : " + response.error);
-        }
-    });
-
-    return {
-        render,
-        closeModal
+  function showToast(message, type = 'info') {
+    const backgroundColor = {
+      info: '#3498db',
+      success: '#07bc0c',
+      warning: '#f1c40f',
+      error: '#e74c3c'
     };
+
+    Toastify({
+      text: message,
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      backgroundColor: backgroundColor[type],
+      stopOnFocus: true
+    }).showToast();
+  }
+
+  function handleAddConsultation(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const consultationData = Object.fromEntries(formData.entries());
+
+    consultationData.patientId = patientId;
+    consultationData.pulse = parseInt(consultationData.pulse) || null;
+    consultationData.weight = parseFloat(consultationData.weight) || null;
+    consultationData.temperature = parseFloat(consultationData.temperature) || null;
+
+    window.electronAPI.send('addConsultation', consultationData);
+  }
+
+  function closeModal() {
+    if (formContainer) {
+      formContainer.remove();
+    }
+  }
+
+  window.electronAPI.receive('addConsultationResponse', (response) => {
+    if (response.success) {
+      showToast('Consultation ajoutée avec succès', 'success');
+      closeModal();
+      if (typeof onConsultationAdded === 'function') {
+        onConsultationAdded();
+      }
+    } else {
+      showToast("Erreur lors de l'ajout de la consultation : " + response.error, 'error');
+    }
+  });
+
+  return {
+    render,
+    closeModal
+  };
 }

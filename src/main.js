@@ -2,9 +2,11 @@
 
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { getProfessions, addProfession, deleteProfession, getResidences, addResidence, deleteResidence, loginUser, registerUser, getDashboardData, getPatients, addPatient, getPatientDetails, updatePatient, deletePatient, addFollowup, getFollowups, getFollowupDetails, updateFollowup, deleteFollowup, addConsultation, getConsultations, deleteConsultation, updateConsultation, getConsultationDetails } = require('./db/queries');
+const { getProfessions, addProfession, deleteProfession, getResidences, addResidence, deleteResidence, loginUser, registerUser, getDashboardData, getPatients, addPatient, getPatientDetails, updatePatient, deletePatient, addFollowup, getFollowups, getFollowupDetails, updateFollowup, deleteFollowup, addConsultation, getConsultations, deleteConsultation, updateConsultation, getConsultationDetails, getAgeGenderDistribution } = require('./db/queries');
 const { generatePdf, generateDocx } = require('./documentGenerator');
 
+
+app.disableHardwareAcceleration();
 
 
 let mainWindow;
@@ -331,6 +333,16 @@ app.whenReady().then(() => {
         } catch (error) {
             console.error('Error generating DOCX:', error);
             mainWindow.webContents.send('documentGenerated', { success: false, type: 'DOCX', error: error.message });
+        }
+    });
+
+    ipcMain.on('getAgeGenderDistribution', async (event, userId) => {
+        try {
+            const data = await getAgeGenderDistribution(userId);
+            mainWindow.webContents.send('ageGenderDistributionResponse', data);
+        } catch (error) {
+            console.error('Error getting age-gender distribution:', error);
+            mainWindow.webContents.send('ageGenderDistributionResponse', { error: 'Failed to get age-gender distribution' });
         }
     });
 

@@ -56,7 +56,7 @@ export default function Login() {
       window.electronAPI.send('login', { username, password });
     } else {
       console.error('Electron API is not available');
-      alert("Erreur de connexion à l'API");
+      showToast("Erreur de connexion à l'API", 'error');
     }
   }
 
@@ -67,6 +67,26 @@ export default function Login() {
       Register();
     }).catch(err => console.error('Error loading Register:', err));
   }
+
+  function showToast(message, type = 'info') {
+    const backgroundColor = {
+      info: '#3498db',
+      success: '#07bc0c',
+      warning: '#f1c40f',
+      error: '#e74c3c'
+    };
+
+    Toastify({
+      text: message,
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      backgroundColor: backgroundColor[type],
+      stopOnFocus: true
+    }).showToast();
+  }
+
 
   if (window.electronAPI && typeof window.electronAPI.receive === 'function') {
     window.electronAPI.receive('loginResponse', (response) => {
@@ -79,7 +99,7 @@ export default function Login() {
           dashboard.render();
         }).catch(err => console.error('Error loading Dashboard:', err));
       } else {
-        alert(response.message || 'Échec de la connexion. Veuillez vérifier vos informations.');
+        showToast(response.message || 'Échec de la connexion. Veuillez vérifier vos informations.', 'error');
       }
     });
   } else {

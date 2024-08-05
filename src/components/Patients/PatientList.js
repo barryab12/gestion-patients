@@ -1,8 +1,8 @@
 // src/components/Patients/PatientList.js
 
 export default function PatientList() {
-    function render() {
-        const template = `
+  function render() {
+    const template = `
         <div class="min-h-screen bg-gray-100">
           <nav class="bg-white shadow-sm">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -84,6 +84,9 @@ export default function PatientList() {
                           Profession
                         </th>
                         <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Contacts
+                        </th>
+                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                           Résidence Actuelle
                         </th>
                         <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -105,103 +108,104 @@ export default function PatientList() {
         </div>
       `;
 
-        document.getElementById('app').innerHTML = template;
-        addEventListeners();
-        loadPatients();
+    document.getElementById('app').innerHTML = template;
+    addEventListeners();
+    loadPatients();
+  }
+
+  function addEventListeners() {
+    document.getElementById('dashboardLink').addEventListener('click', navigateToDashboard);
+    document.getElementById('configLink').addEventListener('click', navigateToConfig);
+    document.getElementById('logoutButton').addEventListener('click', handleLogout);
+    document.getElementById('addPatientButton').addEventListener('click', handleAddPatient);
+    document.getElementById('patientsPerPage').addEventListener('change', handlePatientsPerPageChange);
+    document.getElementById('patientStatus').addEventListener('change', handlePatientStatusChange);
+    document.getElementById('searchPatients').addEventListener('input', handleSearchPatients);
+  }
+
+  function navigateToDashboard(e) {
+    e.preventDefault();
+    import('../Dashboard.js').then(module => {
+      const Dashboard = module.default;
+      const dashboard = Dashboard();
+      dashboard.render();
+    }).catch(err => console.error('Error loading Dashboard:', err));
+  }
+
+  function navigateToConfig(e) {
+    e.preventDefault();
+    import('../Configuration/ConfigurationMenu.js').then(module => {
+      const ConfigurationMenu = module.default;
+      ConfigurationMenu().render();
+    }).catch(err => console.error('Error loading ConfigurationMenu:', err));
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userId');
+    import('../Auth/Login.js').then(module => {
+      const Login = module.default;
+      Login();
+    }).catch(err => console.error('Error loading Login:', err));
+  }
+
+  function handleAddPatient() {
+    import('./AddPatientForm.js').then(module => {
+      const AddPatientForm = module.default;
+      const addPatientForm = AddPatientForm(loadPatients);
+      addPatientForm.render();
+    }).catch(err => console.error('Error loading AddPatientForm:', err));
+  }
+
+  function handlePatientsPerPageChange() {
+    loadPatients();
+  }
+
+  function handlePatientStatusChange() {
+    loadPatients();
+  }
+
+  function handleSearchPatients() {
+    loadPatients();
+  }
+
+  function loadPatients() {
+    const patientsPerPage = document.getElementById('patientsPerPage')?.value;
+    const status = document.getElementById('patientStatus')?.value;
+    const searchTerm = document.getElementById('searchPatients')?.value;
+    const userId = localStorage.getItem('userId');
+
+    const params = {
+      patientsPerPage: patientsPerPage || null,
+      status: status || 'all',
+      searchTerm: searchTerm || '',
+      userId: userId
+    };
+
+    if (window.electronAPI && typeof window.electronAPI.send === 'function') {
+      window.electronAPI.send('getPatients', params);
+    } else {
+      console.error('Electron API is not available');
     }
+  }
 
-    function addEventListeners() {
-        document.getElementById('dashboardLink').addEventListener('click', navigateToDashboard);
-        document.getElementById('configLink').addEventListener('click', navigateToConfig);
-        document.getElementById('logoutButton').addEventListener('click', handleLogout);
-        document.getElementById('addPatientButton').addEventListener('click', handleAddPatient);
-        document.getElementById('patientsPerPage').addEventListener('change', handlePatientsPerPageChange);
-        document.getElementById('patientStatus').addEventListener('change', handlePatientStatusChange);
-        document.getElementById('searchPatients').addEventListener('input', handleSearchPatients);
-    }
+  function viewPatient(patientId) {
+    import('./PatientDetails.js').then(module => {
+      const PatientDetails = module.default;
+      const patientDetails = PatientDetails();
+      patientDetails.render(patientId);
+    }).catch(err => console.error('Error loading PatientDetails:', err));
+  }
 
-    function navigateToDashboard(e) {
-        e.preventDefault();
-        import('../Dashboard.js').then(module => {
-            const Dashboard = module.default;
-            const dashboard = Dashboard();
-            dashboard.render();
-        }).catch(err => console.error('Error loading Dashboard:', err));
-    }
+  function editPatient(patientId) {
+    console.log('Edit patient:', patientId);
+    // À implémenter plus tard
+  }
 
-    function navigateToConfig(e) {
-        e.preventDefault();
-        import('../Configuration/ConfigurationMenu.js').then(module => {
-            const ConfigurationMenu = module.default;
-            ConfigurationMenu().render();
-        }).catch(err => console.error('Error loading ConfigurationMenu:', err));
-    }
-
-    function handleLogout() {
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('userId');
-        import('../Auth/Login.js').then(module => {
-            const Login = module.default;
-            Login();
-        }).catch(err => console.error('Error loading Login:', err));
-    }
-
-    function handleAddPatient() {
-        import('./AddPatientForm.js').then(module => {
-            const AddPatientForm = module.default;
-            const addPatientForm = AddPatientForm(loadPatients);
-            addPatientForm.render();
-        }).catch(err => console.error('Error loading AddPatientForm:', err));
-    }
-
-    function handlePatientsPerPageChange() {
-        loadPatients();
-    }
-
-    function handlePatientStatusChange() {
-        loadPatients();
-    }
-
-    function handleSearchPatients() {
-        loadPatients();
-    }
-
-    function loadPatients() {
-        const patientsPerPage = document.getElementById('patientsPerPage')?.value;
-        const status = document.getElementById('patientStatus')?.value;
-        const searchTerm = document.getElementById('searchPatients')?.value;
-        const userId = localStorage.getItem('userId');
-
-        const params = {
-            patientsPerPage: patientsPerPage || null,
-            status: status || 'all',
-            searchTerm: searchTerm || '',
-            userId: userId
-        };
-
-        if (window.electronAPI && typeof window.electronAPI.send === 'function') {
-            window.electronAPI.send('getPatients', params);
-        } else {
-            console.error('Electron API is not available');
-        }
-    }
-
-    function viewPatient(patientId) {
-        import('./PatientDetails.js').then(module => {
-            const PatientDetails = module.default;
-            const patientDetails = PatientDetails();
-            patientDetails.render(patientId);
-        }).catch(err => console.error('Error loading PatientDetails:', err));
-    }
-
-    function editPatient(patientId) {
-        console.log('Edit patient:', patientId);
-        // À implémenter plus tard
-    }
-
-    function displayPatients(patients) {
-        const tableBody = document.getElementById('patientTableBody');
-        tableBody.innerHTML = patients.map(patient => `
+  function displayPatients(patients) {
+    console.log('Displaying patients:', patients);
+    const tableBody = document.getElementById('patientTableBody');
+    tableBody.innerHTML = patients.map(patient => `
             <tr>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                     <p class="text-gray-900 whitespace-no-wrap">${patient.patient_number}</p>
@@ -222,6 +226,9 @@ export default function PatientList() {
                     <p class="text-gray-900 whitespace-no-wrap">${patient.profession || 'N/A'}</p>
                 </td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <p class="text-gray-900 whitespace-no-wrap">${patient.contacts || 'N/A'}</p>
+                </td>
+                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                     <p class="text-gray-900 whitespace-no-wrap">${patient.current_residence || 'N/A'}</p>
                 </td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
@@ -234,22 +241,22 @@ export default function PatientList() {
             </tr>
         `).join('');
 
-        // Ajouter les écouteurs d'événements pour les boutons
-        document.querySelectorAll('.view-patient').forEach(button => {
-            button.addEventListener('click', () => viewPatient(button.dataset.id));
-        });
-        document.querySelectorAll('.edit-patient').forEach(button => {
-            button.addEventListener('click', () => editPatient(button.dataset.id));
-        });
-    }
+    // Ajouter les écouteurs d'événements pour les boutons
+    document.querySelectorAll('.view-patient').forEach(button => {
+      button.addEventListener('click', () => viewPatient(button.dataset.id));
+    });
+    document.querySelectorAll('.edit-patient').forEach(button => {
+      button.addEventListener('click', () => editPatient(button.dataset.id));
+    });
+  }
 
-    if (window.electronAPI && typeof window.electronAPI.receive === 'function') {
-        window.electronAPI.receive('patientsData', (patients) => {
-            displayPatients(patients);
-        });
-    }
+  if (window.electronAPI && typeof window.electronAPI.receive === 'function') {
+    window.electronAPI.receive('patientsData', (patients) => {
+      displayPatients(patients);
+    });
+  }
 
-    return {
-        render
-    };
+  return {
+    render
+  };
 }

@@ -1,10 +1,10 @@
 // src/components/Followups/AddFollowup.js
 
 export default function AddFollowup(patientId, onFollowupAdded) {
-    let formContainer = null;
+  let formContainer = null;
 
-    function render() {
-        const template = `
+  function render() {
+    const template = `
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" id="addFollowupModal">
           <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mt-3 text-center">
@@ -48,51 +48,70 @@ export default function AddFollowup(patientId, onFollowupAdded) {
         </div>
       `;
 
-        formContainer = document.createElement('div');
-        formContainer.innerHTML = template;
-        document.body.appendChild(formContainer);
+    formContainer = document.createElement('div');
+    formContainer.innerHTML = template;
+    document.body.appendChild(formContainer);
 
-        addEventListeners();
+    addEventListeners();
+  }
+
+  function addEventListeners() {
+    formContainer.querySelector('#addFollowupForm').addEventListener('submit', handleAddFollowup);
+    formContainer.querySelector('#cancelAddFollowup').addEventListener('click', closeModal);
+  }
+
+  function handleAddFollowup(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const followupData = Object.fromEntries(formData.entries());
+
+    followupData.patientId = patientId;
+    followupData.pulse = parseInt(followupData.pulse) || null;
+    followupData.weight = parseFloat(followupData.weight) || null;
+    followupData.temperature = parseFloat(followupData.temperature) || null;
+
+    window.electronAPI.send('addFollowup', followupData);
+  }
+
+  function closeModal() {
+    if (formContainer) {
+      formContainer.remove();
     }
+  }
 
-    function addEventListeners() {
-        formContainer.querySelector('#addFollowupForm').addEventListener('submit', handleAddFollowup);
-        formContainer.querySelector('#cancelAddFollowup').addEventListener('click', closeModal);
-    }
-
-    function handleAddFollowup(e) {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const followupData = Object.fromEntries(formData.entries());
-
-        followupData.patientId = patientId;
-        followupData.pulse = parseInt(followupData.pulse) || null;
-        followupData.weight = parseFloat(followupData.weight) || null;
-        followupData.temperature = parseFloat(followupData.temperature) || null;
-
-        window.electronAPI.send('addFollowup', followupData);
-    }
-
-    function closeModal() {
-        if (formContainer) {
-            formContainer.remove();
-        }
-    }
-
-    window.electronAPI.receive('addFollowupResponse', (response) => {
-        if (response.success) {
-            alert('Suivi ajouté avec succès');
-            closeModal();
-            if (typeof onFollowupAdded === 'function') {
-                onFollowupAdded();
-            }
-        } else {
-            alert("Erreur lors de l'ajout du suivi : " + response.error);
-        }
-    });
-
-    return {
-        render,
-        closeModal
+  function showToast(message, type = 'info') {
+    const backgroundColor = {
+      info: '#3498db',
+      success: '#07bc0c',
+      warning: '#f1c40f',
+      error: '#e74c3c'
     };
+
+    Toastify({
+      text: message,
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      backgroundColor: backgroundColor[type],
+      stopOnFocus: true
+    }).showToast();
+  }
+
+  window.electronAPI.receive('addFollowupResponse', (response) => {
+    if (response.success) {
+      showToast('Suivi ajouté avec succès', 'success');
+      closeModal();
+      if (typeof onFollowupAdded === 'function') {
+        onFollowupAdded();
+      }
+    } else {
+      showToast("Erreur lors de l'ajout du suivi : " + response.error, 'error');
+    }
+  });
+
+  return {
+    render,
+    closeModal
+  };
 }

@@ -74,7 +74,7 @@ export default function PatientDetails() {
     const userId = localStorage.getItem('userId');
     console.log('Generating PDF for patient ID:', patientId, 'User ID:', userId);
     if (!patientId || !userId) {
-      alert('Erreur : ID du patient ou de l\'utilisateur non défini');
+      showToast('Erreur : ID du patient ou de l\'utilisateur non défini');
       return;
     }
     window.electronAPI.send('generatePdf', { patientId, userId });
@@ -85,7 +85,7 @@ export default function PatientDetails() {
     const userId = localStorage.getItem('userId');
     console.log('Generating DOCX for patient ID:', patientId, 'User ID:', userId);
     if (!patientId || !userId) {
-      alert('Erreur : ID du patient ou de l\'utilisateur non défini');
+      showToast('Erreur : ID du patient ou de l\'utilisateur non défini');
       return;
     }
     window.electronAPI.send('generateDocx', { patientId, userId });
@@ -285,13 +285,32 @@ export default function PatientDetails() {
     }
   }
 
+  function showToast(message, type = 'info') {
+    const backgroundColor = {
+      info: '#3498db',
+      success: '#07bc0c',
+      warning: '#f1c40f',
+      error: '#e74c3c'
+    };
+
+    Toastify({
+      text: message,
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      backgroundColor: backgroundColor[type],
+      stopOnFocus: true
+    }).showToast();
+  }
+
   if (window.electronAPI && typeof window.electronAPI.receive === 'function') {
 
     window.electronAPI.receive('documentGenerated', (response) => {
       if (response.success) {
-        alert(`Document ${response.type} généré avec succès`);
+        showToast(`Document ${response.type} généré avec succès`, 'success');
       } else {
-        alert(`Erreur lors de la génération du document ${response.type}: ${response.error}`);
+        showToast(`Erreur lors de la génération du document ${response.type}: ${response.error}`, 'error');
       }
     });
 
@@ -301,19 +320,19 @@ export default function PatientDetails() {
 
     window.electronAPI.receive('deletePatientResponse', (response) => {
       if (response.success) {
-        alert('Patient supprimé avec succès');
+        showToast('Patient supprimé avec succès', 'success');
         navigateToPatientList();
       } else {
-        alert("Erreur lors de la suppression du patient : " + response.error);
+        showToast("Erreur lors de la suppression du patient : " + response.error, 'error');
       }
     });
 
     window.electronAPI.receive('deleteFollowupResponse', (response) => {
       if (response.success) {
-        alert('Suivi supprimé avec succès');
+        showToast('Suivi supprimé avec succès', 'success');
         loadFollowups();
       } else {
-        alert("Erreur lors de la suppression du suivi : " + response.error);
+        showToast("Erreur lors de la suppression du suivi : " + response.error, 'error');
       }
     });
 
@@ -335,10 +354,10 @@ export default function PatientDetails() {
 
     window.electronAPI.receive('deleteConsultationResponse', (response) => {
       if (response.success) {
-        alert('Consultation supprimée avec succès');
+        showToast('Consultation supprimée avec succès', 'success');
         loadConsultations();
       } else {
-        alert("Erreur lors de la suppression de la consultation : " + response.error);
+        showToast("Erreur lors de la suppression de la consultation : " + response.error, 'error');
       }
     });
 

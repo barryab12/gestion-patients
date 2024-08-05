@@ -71,8 +71,27 @@ export default function Register() {
       window.electronAPI.send('register', { username, email, password, role });
     } else {
       console.error('Electron API is not available');
-      alert("Erreur d'inscription");
+      showToast("Erreur d'inscription");
     }
+  }
+
+  function showToast(message, type = 'info') {
+    const backgroundColor = {
+      info: '#3498db',
+      success: '#07bc0c',
+      warning: '#f1c40f',
+      error: '#e74c3c'
+    };
+
+    Toastify({
+      text: message,
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      backgroundColor: backgroundColor[type],
+      stopOnFocus: true
+    }).showToast();
   }
 
   function navigateToLogin(e) {
@@ -86,13 +105,13 @@ export default function Register() {
   if (window.electronAPI && typeof window.electronAPI.receive === 'function') {
     window.electronAPI.receive('registerResponse', (response) => {
       if (response.success) {
-        alert('Inscription réussie. Veuillez vous connecter.');
+        showToast('Inscription réussie. Veuillez vous connecter.', 'success');
         import('./Login.js').then(module => {
           const Login = module.default;
           Login();
         }).catch(err => console.error('Error loading Login:', err));
       } else {
-        alert(response.message || "Échec de l'inscription. Veuillez réessayer.");
+        showToast(response.message || "Échec de l'inscription. Veuillez réessayer.", 'error');
       }
     });
   } else {

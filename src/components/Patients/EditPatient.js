@@ -49,6 +49,10 @@ export default function EditPatient(patientId, onPatientUpdated) {
                     <option value="">Sélectionnez une résidence</option>
                   </select>
                 </div>
+                <div class="mb-4">
+                  <label for="contacts" class="block text-gray-700 text-sm font-bold mb-2">Contacts</label>
+                  <input type="text" id="contacts" name="contacts" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
                 <div class="flex items-center justify-between mt-4">
                   <button type="button" id="cancelEditPatient" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                     Annuler
@@ -90,6 +94,8 @@ export default function EditPatient(patientId, onPatientUpdated) {
     formContainer.querySelector('#profession').value = patient.profession_id || '';
     formContainer.querySelector('#currentResidence').value = patient.current_residence_id || '';
     formContainer.querySelector('#usualResidence').value = patient.usual_residence_id || '';
+    formContainer.querySelector('#contacts').value = patient.contacts || '';
+
   }
 
   function handleEditPatient(e) {
@@ -101,6 +107,8 @@ export default function EditPatient(patientId, onPatientUpdated) {
     updatedPatientData.professionId = parseInt(updatedPatientData.profession) || null;
     updatedPatientData.currentResidenceId = parseInt(updatedPatientData.currentResidence) || null;
     updatedPatientData.usualResidenceId = parseInt(updatedPatientData.usualResidence) || null;
+
+    updatedPatientData.contacts = formData.get('contacts');
 
     // Ajouter l'ID du patient
     updatedPatientData.id = patientId;
@@ -152,15 +160,34 @@ export default function EditPatient(patientId, onPatientUpdated) {
     }
   });
 
+  function showToast(message, type = 'info') {
+    const backgroundColor = {
+      info: '#3498db',
+      success: '#07bc0c',
+      warning: '#f1c40f',
+      error: '#e74c3c'
+    };
+
+    Toastify({
+      text: message,
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      backgroundColor: backgroundColor[type],
+      stopOnFocus: true
+    }).showToast();
+  }
+
   window.electronAPI.receive('updatePatientResponse', (response) => {
     if (response.success) {
-      alert('Patient mis à jour avec succès');
+      showToast('Patient mis à jour avec succès', 'success');
       closeModal();
       if (typeof onPatientUpdated === 'function') {
         onPatientUpdated();
       }
     } else {
-      alert("Erreur lors de la mise à jour du patient : " + response.error);
+      showToast("Erreur lors de la mise à jour du patient : " + response.error, 'error');
     }
   });
 

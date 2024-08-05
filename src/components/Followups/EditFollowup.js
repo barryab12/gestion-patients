@@ -1,11 +1,11 @@
 // src/components/Followups/EditFollowup.js
 
 export default function EditFollowup(followupId, onFollowupUpdated) {
-    let formContainer = null;
-    let followupData = null;
+  let formContainer = null;
+  let followupData = null;
 
-    function render() {
-        const template = `
+  function render() {
+    const template = `
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" id="editFollowupModal">
           <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mt-3 text-center">
@@ -49,70 +49,89 @@ export default function EditFollowup(followupId, onFollowupUpdated) {
         </div>
       `;
 
-        formContainer = document.createElement('div');
-        formContainer.innerHTML = template;
-        document.body.appendChild(formContainer);
+    formContainer = document.createElement('div');
+    formContainer.innerHTML = template;
+    document.body.appendChild(formContainer);
 
-        loadFollowupData();
-        addEventListeners();
+    loadFollowupData();
+    addEventListeners();
+  }
+
+  function addEventListeners() {
+    formContainer.querySelector('#editFollowupForm').addEventListener('submit', handleEditFollowup);
+    formContainer.querySelector('#cancelEditFollowup').addEventListener('click', closeModal);
+  }
+
+  function loadFollowupData() {
+    window.electronAPI.send('getFollowupDetails', followupId);
+  }
+
+  function populateForm(followup) {
+    followupData = followup;
+    formContainer.querySelector('#followupDate').value = followup.followup_date;
+    formContainer.querySelector('#bloodPressure').value = followup.blood_pressure || '';
+    formContainer.querySelector('#pulse').value = followup.pulse || '';
+    formContainer.querySelector('#weight').value = followup.weight || '';
+    formContainer.querySelector('#temperature').value = followup.temperature || '';
+    formContainer.querySelector('#observation').value = followup.observation || '';
+  }
+
+  function handleEditFollowup(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const updatedFollowupData = Object.fromEntries(formData.entries());
+
+    updatedFollowupData.id = followupId;
+    updatedFollowupData.pulse = parseInt(updatedFollowupData.pulse) || null;
+    updatedFollowupData.weight = parseFloat(updatedFollowupData.weight) || null;
+    updatedFollowupData.temperature = parseFloat(updatedFollowupData.temperature) || null;
+
+    window.electronAPI.send('updateFollowup', updatedFollowupData);
+  }
+
+  function closeModal() {
+    if (formContainer) {
+      formContainer.remove();
     }
+  }
 
-    function addEventListeners() {
-        formContainer.querySelector('#editFollowupForm').addEventListener('submit', handleEditFollowup);
-        formContainer.querySelector('#cancelEditFollowup').addEventListener('click', closeModal);
-    }
-
-    function loadFollowupData() {
-        window.electronAPI.send('getFollowupDetails', followupId);
-    }
-
-    function populateForm(followup) {
-        followupData = followup;
-        formContainer.querySelector('#followupDate').value = followup.followup_date;
-        formContainer.querySelector('#bloodPressure').value = followup.blood_pressure || '';
-        formContainer.querySelector('#pulse').value = followup.pulse || '';
-        formContainer.querySelector('#weight').value = followup.weight || '';
-        formContainer.querySelector('#temperature').value = followup.temperature || '';
-        formContainer.querySelector('#observation').value = followup.observation || '';
-    }
-
-    function handleEditFollowup(e) {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const updatedFollowupData = Object.fromEntries(formData.entries());
-
-        updatedFollowupData.id = followupId;
-        updatedFollowupData.pulse = parseInt(updatedFollowupData.pulse) || null;
-        updatedFollowupData.weight = parseFloat(updatedFollowupData.weight) || null;
-        updatedFollowupData.temperature = parseFloat(updatedFollowupData.temperature) || null;
-
-        window.electronAPI.send('updateFollowup', updatedFollowupData);
-    }
-
-    function closeModal() {
-        if (formContainer) {
-            formContainer.remove();
-        }
-    }
-
-    window.electronAPI.receive('followupDetailsResponse', (followup) => {
-        populateForm(followup);
-    });
-
-    window.electronAPI.receive('updateFollowupResponse', (response) => {
-        if (response.success) {
-            alert('Suivi mis à jour avec succès');
-            closeModal();
-            if (typeof onFollowupUpdated === 'function') {
-                onFollowupUpdated();
-            }
-        } else {
-            alert("Erreur lors de la mise à jour du suivi : " + response.error);
-        }
-    });
-
-    return {
-        render,
-        closeModal
+  function showToast(message, type = 'info') {
+    const backgroundColor = {
+      info: '#3498db',
+      success: '#07bc0c',
+      warning: '#f1c40f',
+      error: '#e74c3c'
     };
+
+    Toastify({
+      text: message,
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      backgroundColor: backgroundColor[type],
+      stopOnFocus: true
+    }).showToast();
+  }
+
+  window.electronAPI.receive('followupDetailsResponse', (followup) => {
+    populateForm(followup);
+  });
+
+  window.electronAPI.receive('updateFollowupResponse', (response) => {
+    if (response.success) {
+      showToast('Suivi mis à jour avec succès', 'success');
+      closeModal();
+      if (typeof onFollowupUpdated === 'function') {
+        onFollowupUpdated();
+      }
+    } else {
+      showToast("Erreur lors de la mise à jour du suivi : " + response.error, 'error');
+    }
+  });
+
+  return {
+    render,
+    closeModal
+  };
 }

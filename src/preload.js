@@ -2,6 +2,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+
 contextBridge.exposeInMainWorld('electronAPI', {
     send: (channel, data) => {
         ipcRenderer.send(channel, data);
@@ -13,5 +14,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.removeAllListeners(channel);
     }
 });
+
 
 console.log('Preload script executed, Electron API exposed as electronAPI');

@@ -97,6 +97,18 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+
+              <div class="mt-8">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                  <div class="p-5">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Répartition des patients par âge et sexe</h3>
+                    <div class="mt-5">
+                      <div id="ageGenderDistributionChart" style="height: 350px;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         </main>
@@ -152,6 +164,7 @@ export default function Dashboard() {
 
     if (window.electronAPI && typeof window.electronAPI.send === 'function') {
       window.electronAPI.send('getDashboardData', userId);
+      window.electronAPI.send('getAgeGenderDistribution', userId);
     } else {
       console.error('Electron API is not available');
       updateDashboardUI({ error: 'Impossible de charger les données' });
@@ -205,11 +218,59 @@ export default function Dashboard() {
     createConsultationsChart(data.consultationsPerMonth);
   }
 
+  function createAgeGenderDistributionChart(data) {
+    const options = {
+      chart: {
+        type: 'bar',
+        height: 350,
+        stacked: true,
+      },
+      series: [
+        {
+          name: 'Hommes',
+          data: data.male
+        },
+        {
+          name: 'Femmes',
+          data: data.female
+        }
+      ],
+      xaxis: {
+        categories: ['0-18', '19-30', '31-45', '46-60', '61+'],
+        title: {
+          text: 'Tranches d\'âge'
+        }
+      },
+      yaxis: {
+        title: {
+          text: 'Nombre de patients'
+        }
+      },
+      colors: ['#008FFB', '#FF4560'],
+      title: {
+        text: 'Répartition des patients par âge et sexe',
+        align: 'center'
+      }
+    };
+
+    const chart = new ApexCharts(document.getElementById('ageGenderDistributionChart'), options);
+    chart.render();
+  }
+
   if (window.electronAPI && typeof window.electronAPI.receive === 'function') {
     window.electronAPI.receive('dashboardDataResponse', (data) => {
       console.log('Received dashboard data:', data);
       updateDashboardUI(data);
     });
+
+    window.electronAPI.receive('ageGenderDistributionResponse', (data) => {
+      if (data.error) {
+        console.error('Error loading age-gender distribution:', data.error);
+      } else {
+        createAgeGenderDistributionChart(data);
+      }
+    });
+
   } else {
     console.error('Electron API receive function is not available');
   }

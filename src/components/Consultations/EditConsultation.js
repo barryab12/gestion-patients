@@ -1,11 +1,11 @@
 // src/components/Consultations/EditConsultation.js
 
 export default function EditConsultation(consultationId, onConsultationUpdated) {
-    let formContainer = null;
-    let consultationData = null;
+  let formContainer = null;
+  let consultationData = null;
 
-    function render() {
-        const template = `
+  function render() {
+    const template = `
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" id="editConsultationModal">
           <div class="relative top-20 mx-auto p-5 border w-3/4 shadow-lg rounded-md bg-white">
             <div class="mt-3 text-center">
@@ -67,74 +67,94 @@ export default function EditConsultation(consultationId, onConsultationUpdated) 
         </div>
       `;
 
-        formContainer = document.createElement('div');
-        formContainer.innerHTML = template;
-        document.body.appendChild(formContainer);
+    formContainer = document.createElement('div');
+    formContainer.innerHTML = template;
+    document.body.appendChild(formContainer);
 
-        loadConsultationData();
-        addEventListeners();
+    loadConsultationData();
+    addEventListeners();
+  }
+
+  function addEventListeners() {
+    formContainer.querySelector('#editConsultationForm').addEventListener('submit', handleEditConsultation);
+    formContainer.querySelector('#cancelEditConsultation').addEventListener('click', closeModal);
+  }
+
+  function loadConsultationData() {
+    window.electronAPI.send('getConsultationDetails', consultationId);
+  }
+
+  function populateForm(consultation) {
+    consultationData = consultation;
+    formContainer.querySelector('#consultationDate').value = consultation.consultation_date;
+    formContainer.querySelector('#reason').value = consultation.reason || '';
+    formContainer.querySelector('#bloodPressure').value = consultation.blood_pressure || '';
+    formContainer.querySelector('#pulse').value = consultation.pulse || '';
+    formContainer.querySelector('#weight').value = consultation.weight || '';
+    formContainer.querySelector('#temperature').value = consultation.temperature || '';
+    formContainer.querySelector('#medicalHistory').value = consultation.medical_history || '';
+    formContainer.querySelector('#clinicalExamination').value = consultation.clinical_examination || '';
+    formContainer.querySelector('#diagnosis').value = consultation.diagnosis || '';
+    formContainer.querySelector('#treatment').value = consultation.medical_treatment || '';
+  }
+
+  function handleEditConsultation(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const updatedConsultationData = Object.fromEntries(formData.entries());
+
+    updatedConsultationData.id = consultationId;
+    updatedConsultationData.pulse = parseInt(updatedConsultationData.pulse) || null;
+    updatedConsultationData.weight = parseFloat(updatedConsultationData.weight) || null;
+    updatedConsultationData.temperature = parseFloat(updatedConsultationData.temperature) || null;
+
+    window.electronAPI.send('updateConsultation', updatedConsultationData);
+  }
+
+  function closeModal() {
+    if (formContainer) {
+      formContainer.remove();
     }
+  }
 
-    function addEventListeners() {
-        formContainer.querySelector('#editConsultationForm').addEventListener('submit', handleEditConsultation);
-        formContainer.querySelector('#cancelEditConsultation').addEventListener('click', closeModal);
-    }
+  window.electronAPI.receive('consultationDetailsResponse', (consultation) => {
+    populateForm(consultation);
+  });
 
-    function loadConsultationData() {
-        window.electronAPI.send('getConsultationDetails', consultationId);
-    }
-
-    function populateForm(consultation) {
-        consultationData = consultation;
-        formContainer.querySelector('#consultationDate').value = consultation.consultation_date;
-        formContainer.querySelector('#reason').value = consultation.reason || '';
-        formContainer.querySelector('#bloodPressure').value = consultation.blood_pressure || '';
-        formContainer.querySelector('#pulse').value = consultation.pulse || '';
-        formContainer.querySelector('#weight').value = consultation.weight || '';
-        formContainer.querySelector('#temperature').value = consultation.temperature || '';
-        formContainer.querySelector('#medicalHistory').value = consultation.medical_history || '';
-        formContainer.querySelector('#clinicalExamination').value = consultation.clinical_examination || '';
-        formContainer.querySelector('#diagnosis').value = consultation.diagnosis || '';
-        formContainer.querySelector('#treatment').value = consultation.medical_treatment || '';
-    }
-
-    function handleEditConsultation(e) {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const updatedConsultationData = Object.fromEntries(formData.entries());
-
-        updatedConsultationData.id = consultationId;
-        updatedConsultationData.pulse = parseInt(updatedConsultationData.pulse) || null;
-        updatedConsultationData.weight = parseFloat(updatedConsultationData.weight) || null;
-        updatedConsultationData.temperature = parseFloat(updatedConsultationData.temperature) || null;
-
-        window.electronAPI.send('updateConsultation', updatedConsultationData);
-    }
-
-    function closeModal() {
-        if (formContainer) {
-            formContainer.remove();
-        }
-    }
-
-    window.electronAPI.receive('consultationDetailsResponse', (consultation) => {
-        populateForm(consultation);
-    });
-
-    window.electronAPI.receive('updateConsultationResponse', (response) => {
-        if (response.success) {
-            alert('Consultation mise à jour avec succès');
-            closeModal();
-            if (typeof onConsultationUpdated === 'function') {
-                onConsultationUpdated();
-            }
-        } else {
-            alert("Erreur lors de la mise à jour de la consultation : " + response.error);
-        }
-    });
-
-    return {
-        render,
-        closeModal
+  function showToast(message, type = 'info') {
+    const backgroundColor = {
+      info: '#3498db',
+      success: '#07bc0c',
+      warning: '#f1c40f',
+      error: '#e74c3c'
     };
+
+    Toastify({
+      text: message,
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      backgroundColor: backgroundColor[type],
+      stopOnFocus: true
+    }).showToast();
+  }
+
+
+  window.electronAPI.receive('updateConsultationResponse', (response) => {
+    if (response.success) {
+      showToast('Consultation mise à jour avec succès', 'success');
+      closeModal();
+      if (typeof onConsultationUpdated === 'function') {
+        onConsultationUpdated();
+      }
+    } else {
+      showToast("Erreur lors de la mise à jour de la consultation : " + response.error, 'error');
+    }
+  });
+
+  return {
+    render,
+    closeModal
+  };
 }

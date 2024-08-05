@@ -20,12 +20,14 @@
   "dependencies": {
     "apexcharts": "^3.51.0",
     "bcrypt": "^5.1.1",
+    "better-sqlite3": "^11.1.2",
     "concurrently": "^8.2.2",
     "docx": "^8.5.0",
     "pdfkit": "^0.15.0",
-    "sqlite3": "^5.1.7"
+    "toastify-js": "^1.12.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
     "autoprefixer": "^10.4.20",
     "cross-env": "^7.0.3",
     "electron": "^31.3.1",
@@ -46,13 +48,28 @@
     "files": [
       "src/**/*",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      "index.html"
     ],
+    "extraResources": [
+      {
+        "from": "src/db/patient_tracking.db",
+        "to": "db/patient_tracking.db"
+      }
+    ],
+    "electronDownload": {
+      "arch": "x64"
+    },
     "win": {
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "icon": "path/to/your/icon.ico"
+      "icon": "src/assets/icons/doctor.png"
     },
     "nsis": {
       "oneClick": false,

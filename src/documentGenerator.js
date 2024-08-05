@@ -10,15 +10,9 @@ const { getpatientForPDF } = require('./db/queries');
 
 async function generatePdf(patientId, userId) {
     console.log('Generating PDF for patient ID:', patientId, 'User ID:', userId);
-    // const data = await getpatientForPDF(patientId, userId);
-    // const { patient, consultations, followups } = data;
-
-    // console.log("Infos du patient :", patient);
-    // console.log("Consultations :", consultations);
-    // console.log("Suivis :", followups);
 
     try {
-        const data = await getpatientForPDF(patientId, userId);
+        const data = getpatientForPDF(patientId, userId);
         const { patient, consultations, followups } = data;
 
         const doc = new PDFDocument();
@@ -96,7 +90,7 @@ async function generatePdf(patientId, userId) {
 
 async function generateDocx(patientId, userId) {
     try {
-        const data = await getpatientForPDF(patientId, userId);
+        const data = getpatientForPDF(patientId, userId);
         const { patient, consultations, followups } = data;
 
         const doc = new docx.Document({

@@ -50,6 +50,10 @@ export default function AddPatientForm(onPatientAdded) {
                   <option value="">Sélectionnez une résidence</option>
                 </select>
               </div>
+              <div class="mb-4">
+                <label for="contacts" class="block text-gray-700 text-sm font-bold mb-2">Contacts</label>
+                <input type="text" id="contacts" name="contacts" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+              </div>
               <div class="flex items-center justify-between mt-4">
                 <button type="button" id="cancelAddPatient" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                   Annuler
@@ -87,6 +91,8 @@ export default function AddPatientForm(onPatientAdded) {
     patientData.professionId = parseInt(patientData.profession);
     patientData.currentResidenceId = parseInt(patientData.currentResidence);
     patientData.usualResidenceId = parseInt(patientData.usualResidence);
+
+    patientData.contacts = formData.get('contacts');
 
     if (window.electronAPI && typeof window.electronAPI.send === 'function') {
       window.electronAPI.send('addPatient', { patientData, userId });
@@ -128,16 +134,35 @@ export default function AddPatientForm(onPatientAdded) {
     });
   });
 
+  function showToast(message, type = 'info') {
+    const backgroundColor = {
+      info: '#3498db',
+      success: '#07bc0c',
+      warning: '#f1c40f',
+      error: '#e74c3c'
+    };
+
+    Toastify({
+      text: message,
+      duration: 3000,
+      close: true,
+      gravity: "top",
+      position: "right",
+      backgroundColor: backgroundColor[type],
+      stopOnFocus: true
+    }).showToast();
+  }
+
   if (window.electronAPI && typeof window.electronAPI.receive === 'function') {
     window.electronAPI.receive('addPatientResponse', (response) => {
       if (response.success) {
-        alert('Patient ajouté avec succès');
+        showToast('Patient ajouté avec succès', 'success');
         closeModal();
         if (typeof onPatientAdded === 'function') {
           onPatientAdded();
         }
       } else {
-        alert("Erreur lors de l'ajout du patient : " + response.error);
+        showToast("Erreur lors de l'ajout du patient : " + response.error, 'error');
       }
     });
   }

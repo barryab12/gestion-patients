@@ -3,100 +3,57 @@
 const db = require('./schema');
 const bcrypt = require('bcrypt');
 
-
 function getProfessions() {
-    return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM professions ORDER BY name", (err, rows) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(rows);
-            }
-        });
-    });
+    const stmt = db.prepare("SELECT * FROM professions ORDER BY name");
+    return stmt.all();
 }
 
 function addProfession(name) {
-    return new Promise((resolve, reject) => {
-        db.run("INSERT INTO professions (name) VALUES (?)", [name], function (err) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve({ id: this.lastID, name });
-            }
-        });
-    });
+    const stmt = db.prepare("INSERT INTO professions (name) VALUES (?)");
+    const info = stmt.run(name);
+    return { id: info.lastInsertRowid, name };
 }
 
 function deleteProfession(id) {
-    return new Promise((resolve, reject) => {
-        db.run("DELETE FROM professions WHERE id = ?", [id], function (err) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve({ success: true, message: 'Profession supprimée avec succès' });
-            }
-        });
-    });
+    const stmt = db.prepare("DELETE FROM professions WHERE id = ?");
+    stmt.run(id);
+    return { success: true, message: 'Profession supprimée avec succès' };
 }
 
 function deleteResidence(id) {
-    return new Promise((resolve, reject) => {
-        db.run("DELETE FROM residences WHERE id = ?", [id], function (err) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve({ success: true, message: 'Résidence supprimée avec succès' });
-            }
-        });
-    });
+    const stmt = db.prepare("DELETE FROM residences WHERE id = ?");
+    stmt.run(id);
+    return { success: true, message: 'Résidence supprimée avec succès' };
 }
 
-
 function getResidences() {
-    return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM residences ORDER BY name", (err, rows) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(rows);
-            }
-        });
-    });
+    const stmt = db.prepare("SELECT * FROM residences ORDER BY name");
+    return stmt.all();
 }
 
 function addResidence(name, type) {
-    return new Promise((resolve, reject) => {
-        db.run("INSERT INTO residences (name, type) VALUES (?, ?)", [name, type], function (err) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve({ id: this.lastID, name, type });
-            }
-        });
-    });
+    const stmt = db.prepare("INSERT INTO residences (name, type) VALUES (?, ?)");
+    const info = stmt.run(name, type);
+    return { id: info.lastInsertRowid, name, type };
 }
 
-
 function loginUser(username, password) {
+    const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
+    const user = stmt.get(username);
+
+    if (!user) {
+        return { success: false, message: 'Utilisateur non trouvé' };
+    }
+
     return new Promise((resolve, reject) => {
-        db.get('SELECT * FROM users WHERE username = ?', [username], (err, user) => {
+        bcrypt.compare(password, user.password, (err, result) => {
             if (err) {
-                console.error('Database error:', err);
-                reject(new Error('Erreur de base de données'));
-            } else if (!user) {
-                resolve({ success: false, message: 'Utilisateur non trouvé' });
+                console.error('Bcrypt error:', err);
+                reject(new Error('Erreur de vérification du mot de passe'));
+            } else if (result) {
+                resolve({ success: true, userId: user.id });
             } else {
-                bcrypt.compare(password, user.password, (err, result) => {
-                    if (err) {
-                        console.error('Bcrypt error:', err);
-                        reject(new Error('Erreur de vérification du mot de passe'));
-                    } else if (result) {
-                        resolve({ success: true, userId: user.id });
-                    } else {
-                        resolve({ success: false, message: 'Mot de passe incorrect' });
-                    }
-                });
+                resolve({ success: false, message: 'Mot de passe incorrect' });
             }
         });
     });
@@ -109,537 +66,383 @@ function registerUser(username, email, password, role) {
                 console.error('Bcrypt error:', err);
                 reject(new Error('Erreur de hachage du mot de passe'));
             } else {
-                db.run('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
-                    [username, email, hash, role],
-                    function (err) {
-                        if (err) {
-                            console.error('Database error:', err);
-                            if (err.code === 'SQLITE_CONSTRAINT') {
-                                resolve({ success: false, message: 'Nom d\'utilisateur ou email déjà utilisé' });
-                            } else {
-                                reject(new Error('Erreur d\'insertion dans la base de données'));
-                            }
-                        } else {
-                            resolve({ success: true, userId: this.lastID });
-                        }
+                const stmt = db.prepare('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)');
+                try {
+                    const info = stmt.run(username, email, hash, role);
+                    resolve({ success: true, userId: info.lastInsertRowid });
+                } catch (error) {
+                    if (error.code === 'SQLITE_CONSTRAINT') {
+                        resolve({ success: false, message: 'Nom d\'utilisateur ou email déjà utilisé' });
+                    } else {
+                        console.error('Database error:', error);
+                        reject(new Error('Erreur d\'insertion dans la base de données'));
                     }
-                );
+                }
             }
         });
     });
 }
-
 
 function getDashboardData(userId) {
-    return new Promise((resolve, reject) => {
-        const data = {
-            totalPatients: 0,
-            monthlyConsultations: 0,
-            consultationsPerMonth: {
-                labels: [],
-                values: []
-            }
-        };
+    const data = {
+        totalPatients: 0,
+        monthlyConsultations: 0,
+        consultationsPerMonth: {
+            labels: [],
+            values: []
+        }
+    };
 
-        // Get total patients for the connected user
-        db.get('SELECT COUNT(*) as count FROM patients WHERE user_id = ?', [userId], (err, row) => {
-            if (err) {
-                console.error('Error getting total patients:', err);
-                data.totalPatients = 0;
-            } else {
-                data.totalPatients = row.count;
-            }
+    const totalPatientsStmt = db.prepare('SELECT COUNT(*) as count FROM patients WHERE user_id = ?');
+    data.totalPatients = totalPatientsStmt.get(userId).count;
 
-            const currentDate = new Date();
-            const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const currentDate = new Date();
+    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
 
-            // Get monthly consultations for the connected user's patients
-            db.get(`
-                SELECT COUNT(*) as count 
-                FROM consultations c
-                JOIN patients p ON c.patient_id = p.id
-                WHERE p.user_id = ? AND c.consultation_date >= ?
-            `, [userId, firstDayOfMonth.toISOString()], (err, row) => {
-                if (err) {
-                    console.error('Error getting monthly consultations:', err);
-                    data.monthlyConsultations = 0;
-                } else {
-                    data.monthlyConsultations = row.count;
-                }
+    const monthlyConsultationsStmt = db.prepare(`
+        SELECT COUNT(*) as count 
+        FROM consultations c
+        JOIN patients p ON c.patient_id = p.id
+        WHERE p.user_id = ? AND c.consultation_date >= ?
+    `);
+    data.monthlyConsultations = monthlyConsultationsStmt.get(userId, firstDayOfMonth).count;
 
-                // Get consultations per month for the connected user's patients
-                db.all(`
-                    SELECT strftime('%Y-%m', c.consultation_date) as month, COUNT(*) as count
-                    FROM consultations c
-                    JOIN patients p ON c.patient_id = p.id
-                    WHERE p.user_id = ?
-                    GROUP BY strftime('%Y-%m', c.consultation_date)
-                    ORDER BY month DESC
-                    LIMIT 12
-                `, [userId], (err, rows) => {
-                    if (err) {
-                        console.error('Error getting consultations per month:', err);
-                    } else {
-                        rows.reverse().forEach(row => {
-                            data.consultationsPerMonth.labels.push(row.month);
-                            data.consultationsPerMonth.values.push(row.count);
-                        });
-                    }
+    const consultationsPerMonthStmt = db.prepare(`
+        SELECT strftime('%Y-%m', c.consultation_date) as month, COUNT(*) as count
+        FROM consultations c
+        JOIN patients p ON c.patient_id = p.id
+        WHERE p.user_id = ?
+        GROUP BY strftime('%Y-%m', c.consultation_date)
+        ORDER BY month DESC
+        LIMIT 12
+    `);
+    const consultationsPerMonth = consultationsPerMonthStmt.all(userId);
 
-                    // Ensure we always have valid data
-                    if (data.consultationsPerMonth.labels.length === 0) {
-                        data.consultationsPerMonth.labels = ['Pas de données'];
-                        data.consultationsPerMonth.values = [0];
-                    }
-
-                    resolve(data);
-                });
-            });
-        });
+    consultationsPerMonth.reverse().forEach(row => {
+        data.consultationsPerMonth.labels.push(row.month);
+        data.consultationsPerMonth.values.push(row.count);
     });
+
+    if (data.consultationsPerMonth.labels.length === 0) {
+        data.consultationsPerMonth.labels = ['Pas de données'];
+        data.consultationsPerMonth.values = [0];
+    }
+
+    return data;
 }
 
-async function generatePatientNumber() {
-    return new Promise((resolve, reject) => {
-        const query = "SELECT MAX(CAST(SUBSTR(patient_number, 2) AS INTEGER)) as max_num FROM patients";
-        db.get(query, [], (err, row) => {
-            if (err) {
-                reject(err);
-            } else {
-                const nextNum = (row.max_num || 0) + 1;
-                const patientNumber = `P${String(nextNum).padStart(5, '0')}`;
-                resolve(patientNumber);
-            }
-        });
-    });
+function generatePatientNumber() {
+    const stmt = db.prepare("SELECT MAX(CAST(SUBSTR(patient_number, 2) AS INTEGER)) as max_num FROM patients");
+    const row = stmt.get();
+    const nextNum = (row.max_num || 0) + 1;
+    return `P${String(nextNum).padStart(5, '0')}`;
 }
 
-
-async function addPatient(patientData, userId) {
-    const interactiveNumber = await generateInteractiveNumber();
+function addPatient(patientData, userId) {
     const { firstName, lastName, dateOfBirth, gender, professionId, currentResidenceId, usualResidenceId, contacts } = patientData;
+
+    const insertStmt = db.prepare(`
+        INSERT INTO patients (
+            patient_number, first_name, last_name, date_of_birth, gender, 
+            profession_id, current_residence_id, usual_residence_id, contacts, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
     let patientNumber;
     let retries = 0;
     const maxRetries = 5;
 
     while (retries < maxRetries) {
         try {
-            patientNumber = await generatePatientNumber();
-            const query = `
-                INSERT INTO patients (
-                    patient_number, first_name, last_name, date_of_birth, gender, 
-                    profession_id, current_residence_id, usual_residence_id, contacts, user_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-
-            return new Promise((resolve, reject) => {
-                db.run(query, [
-                    patientNumber, firstName, lastName, dateOfBirth, gender,
-                    professionId, currentResidenceId, usualResidenceId, contacts, userId
-                ], function (err) {
-                    if (err) {
-                        if (err.code === 'SQLITE_CONSTRAINT' && err.message.includes('UNIQUE constraint failed: patients.patient_number')) {
-                            retries++;
-                            if (retries >= maxRetries) {
-                                reject(new Error('Failed to generate a unique patient number after multiple attempts'));
-                            }
-                        } else {
-                            console.error('Error adding patient:', err);
-                            reject(err);
-                        }
-                    } else {
-                        resolve({ success: true, id: this.lastID, patientNumber });
-                    }
-                });
-            });
+            patientNumber = generatePatientNumber();
+            const info = insertStmt.run(
+                patientNumber, firstName, lastName, dateOfBirth, gender,
+                professionId, currentResidenceId, usualResidenceId, contacts, userId
+            );
+            return { success: true, id: info.lastInsertRowid, patientNumber };
         } catch (error) {
-            console.error('Error in addPatient:', error);
-            throw error;
+            if (error.code === 'SQLITE_CONSTRAINT' && error.message.includes('UNIQUE constraint failed: patients.patient_number')) {
+                retries++;
+                if (retries >= maxRetries) {
+                    throw new Error('Failed to generate a unique patient number after multiple attempts');
+                }
+            } else {
+                console.error('Error adding patient:', error);
+                throw error;
+            }
         }
     }
 }
 
 function getPatients({ patientsPerPage = null, status = 'all', searchTerm = '', userId }) {
-    return new Promise((resolve, reject) => {
-        let query = `
-            SELECT 
-                p.id, p.patient_number, p.first_name, p.last_name, p.gender, p.date_of_birth,
-                prof.name as profession,
-                res_current.name as current_residence,
-                res_usual.name as usual_residence,
-                MAX(c.consultation_date) as last_consultation
-            FROM 
-                patients p
-            LEFT JOIN 
-                consultations c ON p.id = c.patient_id
-            LEFT JOIN
-                professions prof ON p.profession_id = prof.id
-            LEFT JOIN
-                residences res_current ON p.current_residence_id = res_current.id
-            LEFT JOIN
-                residences res_usual ON p.usual_residence_id = res_usual.id
-            WHERE 
-                p.user_id = ?
-        `;
+    let query = `
+        SELECT 
+            p.id, p.patient_number, p.first_name, p.last_name, p.gender, p.date_of_birth, p.contacts,
+            prof.name as profession,
+            res_current.name as current_residence,
+            res_usual.name as usual_residence,
+            MAX(c.consultation_date) as last_consultation
+        FROM 
+            patients p
+        LEFT JOIN 
+            consultations c ON p.id = c.patient_id
+        LEFT JOIN
+            professions prof ON p.profession_id = prof.id
+        LEFT JOIN
+            residences res_current ON p.current_residence_id = res_current.id
+        LEFT JOIN
+            residences res_usual ON p.usual_residence_id = res_usual.id
+        WHERE 
+            p.user_id = ?
+    `;
 
-        const queryParams = [userId];
+    const queryParams = [userId];
 
-        if (searchTerm) {
-            query += `
-                AND (
-                    p.first_name LIKE ? OR 
-                    p.last_name LIKE ? OR 
-                    p.patient_number LIKE ?
-                )
-            `;
-            queryParams.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
-        }
-
-        if (status !== 'all') {
-            // Ajoutez ici la logique pour filtrer par statut si nécessaire
-        }
-
+    if (searchTerm) {
         query += `
-            GROUP BY 
-                p.id
-            ORDER BY 
-                p.last_name, p.first_name
+            AND (
+                p.first_name LIKE ? OR 
+                p.last_name LIKE ? OR 
+                p.contacts LIKE ? OR
+                p.patient_number LIKE ?
+
+            )
         `;
+        queryParams.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
+    }
 
-        if (patientsPerPage) {
-            query += " LIMIT ?";
-            queryParams.push(parseInt(patientsPerPage));
-        }
+    if (status !== 'all') {
+        // Ajoutez ici la logique pour filtrer par statut si nécessaire
+    }
 
-        db.all(query, queryParams, (err, rows) => {
-            if (err) {
-                console.error('Error fetching patients:', err);
-                reject(err);
-            } else {
-                resolve(rows);
-            }
-        });
-    });
+    query += `
+        GROUP BY 
+            p.id
+        ORDER BY 
+            p.last_name, p.first_name
+    `;
+
+    if (patientsPerPage) {
+        query += " LIMIT ?";
+        queryParams.push(parseInt(patientsPerPage));
+    }
+
+    const stmt = db.prepare(query);
+    return stmt.all(...queryParams);
 }
 
 function getPatientDetails(patientId, userId) {
-    return new Promise((resolve, reject) => {
-        const query = `
-      SELECT * FROM patients
-      WHERE id = ? AND user_id = ?
-    `;
-
-        db.get(query, [patientId, userId], (err, row) => {
-            if (err) {
-                console.error('Error fetching patient details:', err);
-                reject(err);
-            } else if (!row) {
-                reject(new Error('Patient not found or access denied'));
-            } else {
-                resolve(row);
-            }
-        });
-    });
+    const stmt = db.prepare(`
+        SELECT * FROM patients
+        WHERE id = ? AND user_id = ?
+    `);
+    const patient = stmt.get(patientId, userId);
+    if (!patient) {
+        throw new Error('Patient not found or access denied');
+    }
+    return patient;
 }
 
-
 function updatePatient(patientData) {
-    return new Promise((resolve, reject) => {
-        const { id, lastName, firstName, dateOfBirth, gender, professionId, currentResidenceId, usualResidenceId, contacts } = patientData;
+    const { id, lastName, firstName, dateOfBirth, gender, professionId, currentResidenceId, usualResidenceId, contacts } = patientData;
 
-        const query = `
-            UPDATE patients 
-            SET last_name = ?, first_name = ?, date_of_birth = ?, gender = ?, 
-                profession_id = ?, current_residence_id = ?, usual_residence_id = ?, contacts = ?
-            WHERE id = ?
-        `;
+    const stmt = db.prepare(`
+        UPDATE patients 
+        SET last_name = ?, first_name = ?, date_of_birth = ?, gender = ?, 
+            profession_id = ?, current_residence_id = ?, usual_residence_id = ?, contacts = ?
+        WHERE id = ?
+    `);
 
-        db.run(query, [lastName, firstName, dateOfBirth, gender, professionId, currentResidenceId, usualResidenceId, contacts, id], function (err) {
-            if (err) {
-                console.error('Error updating patient:', err);
-                reject(err);
-            } else {
-                resolve({ success: true, message: 'Patient mis à jour avec succès' });
-            }
-        });
-    });
+    stmt.run(lastName, firstName, dateOfBirth, gender, professionId, currentResidenceId, usualResidenceId, contacts, id);
+    return { success: true, message: 'Patient mis à jour avec succès' };
 }
 
 function deletePatient(patientId) {
-    return new Promise((resolve, reject) => {
-        const query = 'DELETE FROM patients WHERE id = ?';
-
-        db.run(query, [patientId], function (err) {
-            if (err) {
-                console.error('Error deleting patient:', err);
-                reject(err);
-            } else {
-                resolve({ success: true, message: 'Patient supprimé avec succès' });
-            }
-        });
-    });
+    const stmt = db.prepare('DELETE FROM patients WHERE id = ?');
+    stmt.run(patientId);
+    return { success: true, message: 'Patient supprimé avec succès' };
 }
 
-
 function addFollowup(followupData) {
-    return new Promise((resolve, reject) => {
-        const { patientId, followupDate, bloodPressure, pulse, weight, temperature, observation } = followupData;
+    const { patientId, followupDate, bloodPressure, pulse, weight, temperature, observation } = followupData;
 
-        const query = `
-            INSERT INTO followups 
-            (patient_id, followup_date, blood_pressure, pulse, weight, temperature, observation)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
+    const stmt = db.prepare(`
+        INSERT INTO followups 
+        (patient_id, followup_date, blood_pressure, pulse, weight, temperature, observation)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
 
-        db.run(query, [patientId, followupDate, bloodPressure, pulse, weight, temperature, observation], function (err) {
-            if (err) {
-                console.error('Error adding followup:', err);
-                reject(err);
-            } else {
-                resolve({ success: true, id: this.lastID, message: 'Suivi ajouté avec succès' });
-            }
-        });
-    });
+    const info = stmt.run(patientId, followupDate, bloodPressure, pulse, weight, temperature, observation);
+    return { success: true, id: info.lastInsertRowid, message: 'Suivi ajouté avec succès' };
 }
 
 function getFollowups(patientId) {
-    return new Promise((resolve, reject) => {
-        const query = `
-            SELECT * FROM followups
-            WHERE patient_id = ?
-            ORDER BY followup_date DESC
-        `;
-
-        db.all(query, [patientId], (err, rows) => {
-            if (err) {
-                console.error('Error getting followups:', err);
-                reject(err);
-            } else {
-                resolve(rows);
-            }
-        });
-    });
+    const stmt = db.prepare(`
+        SELECT * FROM followups
+        WHERE patient_id = ?
+        ORDER BY followup_date DESC
+    `);
+    return stmt.all(patientId);
 }
 
 function getFollowupDetails(followupId) {
-    return new Promise((resolve, reject) => {
-        const query = 'SELECT * FROM followups WHERE id = ?';
-
-        db.get(query, [followupId], (err, row) => {
-            if (err) {
-                console.error('Error getting followup details:', err);
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    });
+    const stmt = db.prepare('SELECT * FROM followups WHERE id = ?');
+    return stmt.get(followupId);
 }
 
 function updateFollowup(followupData) {
-    return new Promise((resolve, reject) => {
-        const { id, followupDate, bloodPressure, pulse, weight, temperature, observation } = followupData;
+    const { id, followupDate, bloodPressure, pulse, weight, temperature, observation } = followupData;
 
-        const query = `
-            UPDATE followups 
-            SET followup_date = ?, blood_pressure = ?, pulse = ?, weight = ?, temperature = ?, observation = ?
-            WHERE id = ?
-        `;
+    const stmt = db.prepare(`
+        UPDATE followups 
+        SET followup_date = ?, blood_pressure = ?, pulse = ?, weight = ?, temperature = ?, observation = ?
+        WHERE id = ?
+    `);
 
-        db.run(query, [followupDate, bloodPressure, pulse, weight, temperature, observation, id], function (err) {
-            if (err) {
-                console.error('Error updating followup:', err);
-                reject(err);
-            } else {
-                resolve({ success: true, message: 'Suivi mis à jour avec succès' });
-            }
-        });
-    });
+    stmt.run(followupDate, bloodPressure, pulse, weight, temperature, observation, id);
+    return { success: true, message: 'Suivi mis à jour avec succès' };
 }
 
 function deleteFollowup(followupId) {
-    return new Promise((resolve, reject) => {
-        const query = 'DELETE FROM followups WHERE id = ?';
-
-        db.run(query, [followupId], function (err) {
-            if (err) {
-                console.error('Error deleting followup:', err);
-                reject(err);
-            } else {
-                resolve({ success: true, message: 'Suivi supprimé avec succès' });
-            }
-        });
-    });
+    const stmt = db.prepare('DELETE FROM followups WHERE id = ?');
+    stmt.run(followupId);
+    return { success: true, message: 'Suivi supprimé avec succès' };
 }
 
 function addConsultation(consultationData) {
-    return new Promise((resolve, reject) => {
-        const { patientId, consultationDate, reason, bloodPressure, pulse, weight, temperature, medicalHistory, clinicalExamination, diagnosis, treatment } = consultationData;
+    const { patientId, consultationDate, reason, bloodPressure, pulse, weight, temperature, medicalHistory, clinicalExamination, diagnosis, treatment } = consultationData;
 
-        const query = `
-            INSERT INTO consultations 
-            (patient_id, consultation_date, reason, blood_pressure, pulse, weight, temperature, medical_history, clinical_examination, diagnosis, medical_treatment)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
+    const stmt = db.prepare(`
+        INSERT INTO consultations 
+        (patient_id, consultation_date, reason, blood_pressure, pulse, weight, temperature, medical_history, clinical_examination, diagnosis, medical_treatment)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-        db.run(query, [patientId, consultationDate, reason, bloodPressure, pulse, weight, temperature, medicalHistory, clinicalExamination, diagnosis, treatment], function (err) {
-            if (err) {
-                console.error('Error adding consultation:', err);
-                reject(err);
-            } else {
-                resolve({ success: true, id: this.lastID, message: 'Consultation ajoutée avec succès' });
-            }
-        });
-    });
+    const info = stmt.run(patientId, consultationDate, reason, bloodPressure, pulse, weight, temperature, medicalHistory, clinicalExamination, diagnosis, treatment);
+    return { success: true, id: info.lastInsertRowid, message: 'Consultation ajoutée avec succès' };
 }
 
 function getConsultations(patientId) {
-    return new Promise((resolve, reject) => {
-        const query = `
-            SELECT * FROM consultations
-            WHERE patient_id = ?
-            ORDER BY consultation_date DESC
-        `;
-
-        db.all(query, [patientId], (err, rows) => {
-            if (err) {
-                console.error('Error getting consultations:', err);
-                reject(err);
-            } else {
-                resolve(rows);
-            }
-        });
-    });
+    const stmt = db.prepare(`
+        SELECT * FROM consultations
+        WHERE patient_id = ?
+        ORDER BY consultation_date DESC
+    `);
+    return stmt.all(patientId);
 }
 
 function deleteConsultation(consultationId) {
-    return new Promise((resolve, reject) => {
-        const query = 'DELETE FROM consultations WHERE id = ?';
-
-        db.run(query, [consultationId], function (err) {
-            if (err) {
-                console.error('Error deleting consultation:', err);
-                reject(err);
-            } else {
-                resolve({ success: true, message: 'Consultation supprimée avec succès' });
-            }
-        });
-    });
+    const stmt = db.prepare('DELETE FROM consultations WHERE id = ?');
+    stmt.run(consultationId);
+    return { success: true, message: 'Consultation supprimée avec succès' };
 }
 
 function updateConsultation(consultationData) {
-    return new Promise((resolve, reject) => {
-        const { id, consultationDate, reason, bloodPressure, pulse, weight, temperature, medicalHistory, clinicalExamination, diagnosis, treatment } = consultationData;
+    const { id, consultationDate, reason, bloodPressure, pulse, weight, temperature, medicalHistory, clinicalExamination, diagnosis, treatment } = consultationData;
 
-        const query = `
-            UPDATE consultations 
-            SET consultation_date = ?, reason = ?, blood_pressure = ?, pulse = ?, weight = ?, temperature = ?, 
-                medical_history = ?, clinical_examination = ?, diagnosis = ?, medical_treatment = ?
-            WHERE id = ?
-        `;
+    const stmt = db.prepare(`
+        UPDATE consultations 
+        SET consultation_date = ?, reason = ?, blood_pressure = ?, pulse = ?, weight = ?, temperature = ?, 
+            medical_history = ?, clinical_examination = ?, diagnosis = ?, medical_treatment = ?
+        WHERE id = ?
+    `);
 
-        db.run(query, [consultationDate, reason, bloodPressure, pulse, weight, temperature, medicalHistory, clinicalExamination, diagnosis, treatment, id], function (err) {
-            if (err) {
-                console.error('Error updating consultation:', err);
-                reject(err);
-            } else {
-                resolve({ success: true, message: 'Consultation mise à jour avec succès' });
-            }
-        });
-    });
+    stmt.run(consultationDate, reason, bloodPressure, pulse, weight, temperature, medicalHistory, clinicalExamination, diagnosis, treatment, id);
+    return { success: true, message: 'Consultation mise à jour avec succès' };
 }
 
 function getConsultationDetails(consultationId) {
-    return new Promise((resolve, reject) => {
-        const query = 'SELECT * FROM consultations WHERE id = ?';
-
-        db.get(query, [consultationId], (err, row) => {
-            if (err) {
-                console.error('Error getting consultation details:', err);
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    });
+    const stmt = db.prepare('SELECT * FROM consultations WHERE id = ?');
+    return stmt.get(consultationId);
 }
 
-async function generateInteractiveNumber() {
-    return new Promise((resolve, reject) => {
-        const query = "SELECT MAX(CAST(SUBSTR(interactive_number, 1, 6) AS INTEGER)) as max_num FROM patients";
-        db.get(query, [], (err, row) => {
-            if (err) {
-                reject(err);
-            } else {
-                const nextNum = (row.max_num || 0) + 1;
-                const interactiveNumber = `${String(nextNum).padStart(6, '0')}THz`;
-                resolve(interactiveNumber);
-            }
-        });
-    });
+
+function getpatientForPDF(patientId, userId) {
+    const patientStmt = db.prepare(`
+        SELECT p.*, 
+               prof.name as profession,
+               cr.name as current_residence,
+               ur.name as usual_residence
+        FROM patients p
+        LEFT JOIN professions prof ON p.profession_id = prof.id
+        LEFT JOIN residences cr ON p.current_residence_id = cr.id
+        LEFT JOIN residences ur ON p.usual_residence_id = ur.id
+        WHERE p.id = ? AND p.user_id = ?
+    `);
+
+    const patient = patientStmt.get(patientId, userId);
+    if (!patient) {
+        throw new Error('Patient not found or access denied');
+    }
+
+    const consultationsStmt = db.prepare(`
+        SELECT * FROM consultations
+        WHERE patient_id = ?
+        ORDER BY consultation_date DESC
+    `);
+    const consultations = consultationsStmt.all(patientId);
+
+    const followupsStmt = db.prepare(`
+        SELECT * FROM followups
+        WHERE patient_id = ?
+        ORDER BY followup_date DESC
+    `);
+    const followups = followupsStmt.all(patientId);
+
+    return {
+        patient,
+        consultations,
+        followups
+    };
 }
 
-async function getpatientForPDF(patientId, userId) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            // Récupérer les détails du patient
-            const patientQuery = `
-                SELECT p.*, 
-                       prof.name as profession,
-                       cr.name as current_residence,
-                       ur.name as usual_residence
-                FROM patients p
-                LEFT JOIN professions prof ON p.profession_id = prof.id
-                LEFT JOIN residences cr ON p.current_residence_id = cr.id
-                LEFT JOIN residences ur ON p.usual_residence_id = ur.id
-                WHERE p.id = ? AND p.user_id = ?
-            `;
-            const patient = await new Promise((resolve, reject) => {
-                db.get(patientQuery, [patientId, userId], (err, row) => {
-                    if (err) reject(err);
-                    else if (!row) reject(new Error('Patient not found or access denied'));
-                    else resolve(row);
-                });
-            });
+function getAgeGenderDistribution(userId) {
+    const query = `
+      SELECT 
+        CASE 
+          WHEN age < 18 THEN '0-18'
+          WHEN age BETWEEN 18 AND 30 THEN '19-30'
+          WHEN age BETWEEN 31 AND 45 THEN '31-45'
+          WHEN age BETWEEN 46 AND 60 THEN '46-60'
+          ELSE '61+'
+        END as age_group,
+        gender,
+        COUNT(*) as count
+      FROM (
+        SELECT 
+          (strftime('%Y', 'now') - strftime('%Y', date_of_birth)) - 
+          (strftime('%m-%d', 'now') < strftime('%m-%d', date_of_birth)) as age,
+          gender
+        FROM patients
+        WHERE user_id = ?
+      ) as patient_ages
+      GROUP BY age_group, gender
+      ORDER BY age_group, gender
+    `;
 
-            // Récupérer les consultations
-            const consultationsQuery = `
-                SELECT * FROM consultations
-                WHERE patient_id = ?
-                ORDER BY consultation_date DESC
-            `;
-            const consultations = await new Promise((resolve, reject) => {
-                db.all(consultationsQuery, [patientId], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows);
-                });
-            });
+    const stmt = db.prepare(query);
+    const results = stmt.all(userId);
 
-            // Récupérer les suivis
-            const followupsQuery = `
-                SELECT * FROM followups
-                WHERE patient_id = ?
-                ORDER BY followup_date DESC
-            `;
-            const followups = await new Promise((resolve, reject) => {
-                db.all(followupsQuery, [patientId], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows);
-                });
-            });
+    const distribution = {
+        male: [0, 0, 0, 0, 0],
+        female: [0, 0, 0, 0, 0]
+    };
 
-            resolve({
-                patient,
-                consultations,
-                followups
-            });
-        } catch (error) {
-            console.error('Error fetching patient data for PDF:', error);
-            reject(error);
+    const ageGroups = ['0-18', '19-30', '31-45', '46-60', '61+'];
+
+    results.forEach(row => {
+        const index = ageGroups.indexOf(row.age_group);
+        if (index !== -1) {
+            if (row.gender === 'male') {
+                distribution.male[index] = row.count;
+            } else if (row.gender === 'female') {
+                distribution.female[index] = row.count;
+            }
         }
     });
-}
 
+    return distribution;
+}
 
 module.exports = {
     getProfessions,
@@ -667,4 +470,5 @@ module.exports = {
     updateConsultation,
     getConsultationDetails,
     getpatientForPDF,
+    getAgeGenderDistribution
 };

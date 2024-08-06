@@ -1,7 +1,7 @@
 // src/db/queries.js
 
 const db = require('./schema');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 function getProfessions() {
     const stmt = db.prepare("SELECT * FROM professions ORDER BY name");

@@ -15,4 +15,28 @@
     <div id="app" class="container mx-auto p-4"></div>
     <script src="./src/renderer.js"></script>
 </body>
+
+<script>
+    function showToast(message, type = 'info') {
+        const backgroundColor = {
+            info: '#3498db',
+            success: '#07bc0c',
+            warning: '#f1c40f',
+            error: '#e74c3c'
+        };
+    
+        Toastify({
+            text: message,
+            duration: 3000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            backgroundColor: backgroundColor[type],
+            stopOnFocus: true
+        }).showToast();
+    }
+    
+    // Rendre la fonction disponible globalement
+    window.showToast = showToast;
+    </script>
 </html>

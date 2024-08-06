@@ -127,7 +127,6 @@ export default function Dashboard() {
 
   }
 
-
   function navigateToConfig(e) {
     e.preventDefault();
     import('./Configuration/ConfigurationMenu.js').then(module => {
@@ -172,7 +171,7 @@ export default function Dashboard() {
   }
 
   function createConsultationsChart(data) {
-    if (!data || !data.labels || !data.values || data.labels.length === 0 || data.values.length === 0) {
+    if (!data?.labels || !data?.values || data.labels.length === 0 || data.values.length === 0) {
       console.error('Invalid chart data:', data);
       document.getElementById('consultationsChart').innerHTML = 'Données non disponibles pour le graphique';
       return;

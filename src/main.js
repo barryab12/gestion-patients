@@ -5,9 +5,7 @@ const path = require('path');
 const { getProfessions, addProfession, deleteProfession, getResidences, addResidence, deleteResidence, loginUser, registerUser, getDashboardData, getPatients, addPatient, getPatientDetails, updatePatient, deletePatient, addFollowup, getFollowups, getFollowupDetails, updateFollowup, deleteFollowup, addConsultation, getConsultations, deleteConsultation, updateConsultation, getConsultationDetails, getAgeGenderDistribution } = require('./db/queries');
 const { generatePdf, generateDocx } = require('./documentGenerator');
 
-
 app.disableHardwareAcceleration();
-
 
 let mainWindow;
 

@@ -126,24 +126,7 @@ export default function ProfessionManager() {
     });
   });
 
-  function showToast(message, type = 'info') {
-    const backgroundColor = {
-      info: '#3498db',
-      success: '#07bc0c',
-      warning: '#f1c40f',
-      error: '#e74c3c'
-    };
 
-    Toastify({
-      text: message,
-      duration: 3000,
-      close: true,
-      gravity: "top",
-      position: "right",
-      backgroundColor: backgroundColor[type],
-      stopOnFocus: true
-    }).showToast();
-  }
 
   window.electronAPI.receive('professionAdded', (result) => {
     if (result.error) {

@@ -39,8 +39,14 @@ node_modules/
 # Mac System files #
 ####################
 .DS_Store
+.DS_Store/
 
 # Windows System files #
 ########################
 Thumbs.db
 ehthumbs.db
+
+src/db/queries.sqlite3.save
+src/db/schema.sqlite3.save
+yarn.lock
+src/assets/styles/output.css

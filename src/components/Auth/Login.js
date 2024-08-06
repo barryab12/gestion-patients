@@ -68,26 +68,6 @@ export default function Login() {
     }).catch(err => console.error('Error loading Register:', err));
   }
 
-  function showToast(message, type = 'info') {
-    const backgroundColor = {
-      info: '#3498db',
-      success: '#07bc0c',
-      warning: '#f1c40f',
-      error: '#e74c3c'
-    };
-
-    Toastify({
-      text: message,
-      duration: 3000,
-      close: true,
-      gravity: "top",
-      position: "right",
-      backgroundColor: backgroundColor[type],
-      stopOnFocus: true
-    }).showToast();
-  }
-
-
   if (window.electronAPI && typeof window.electronAPI.receive === 'function') {
     window.electronAPI.receive('loginResponse', (response) => {
       if (response.success) {
